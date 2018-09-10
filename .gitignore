@@ -1,0 +1,5 @@
+## on exclut le dossier scripts_i3blocks qui a déjà son suivi git propre
+scripts_i3blocks/*
+
+## on exclut les vieux scripts qu'on ne regarde plus
+old_scripts/*
