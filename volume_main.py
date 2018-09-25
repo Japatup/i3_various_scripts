@@ -1,27 +1,27 @@
 #! /usr/bin/python3
 
-## détection du sink pulse audio en cours d'utilisation (local, hdmi ou autre) et gestion du volume
+## Détection du sink pulse audio en cours d'utilisation (local, hdmi ou autre) et gestion du volume
 
 import re
 import sys
 import subprocess as sp
 
-## 1) récupération de la demande user (du paramère qu'il a mis après volume) ____
+## 1) récupération de la demande user (du paramètre qu'il a mis après volume, et de la commande éventelle à lancer après le script) ____
 args = sys.argv[1:]
-# args = ["nom_programme","-5%"][1:]
-# args = ["nom_programme","mutee"][1:]
+# args = ["nom_programme","-5%","--then","pkill","-SIGRTMIN+10","i3blocks"][1:]
 
-if len(args) != 1:
-    raise ValueError("la fonction prend un unique argument !")
+# if len(args) != 1:
+#     raise ValueError("la fonction prend un unique argument !")
     
 asked_volume = args[0]
 tmp = re.match(r"^([-\+]?\d+%|mute)$",asked_volume)
 if tmp is None:
 	raise ValueError("""
-    l'argument passe a la fonction doit etre : 
+    l'argument principal passe a la fonction doit etre : 
     - un volume absolu (80% par ex)
     - un niveau relatif (+5%, -10% par ex)
-    - ou la commande mute pour activer / desactiver le son""")
+    - ou la commande mute pour activer / desactiver le son
+    Suit ensuite une commande (optionnelle) à lancer apres le script, indiquée apres le mot clef --then""")
 
 ## 2) récupération du running sink, ou du sink par défaut si aucun running
 tmp = sp.Popen('pactl list sinks short'.split(), stdout=sp.PIPE)
@@ -48,3 +48,13 @@ if asked_volume == "mute":
     sp.Popen(["pactl","set-sink-mute",main_sink,"toggle"])
 else:
     sp.Popen(["pactl","set-sink-volume",main_sink,asked_volume])
+
+## 4) si spécifié dans les paramètres, on exécute une commande passée dans l'appel au script (par exemple pour mettre à jour i3blocks après changement du volume)
+
+if "--then" in args:
+    try:
+        to_exec_then = args[args.index("--then") + 1:]
+        tmp = sp.Popen(to_exec_then, stderr=sp.PIPE)
+    except:
+        raise Warning("la commande suivant le --then ne s'est pas executée correctement")
+
