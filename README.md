@@ -16,6 +16,7 @@ Here you will find scripts to :
 3. adjust the screen backlight *(depends on xbacklight)*
 4. control audio volume and sync it with i3blocks (i3status) bar *(depends on pulseaudio)*
 5. mount all mtp devices, even if not root *(depends on jmtpfs)*
+6. toggle touchpad device
 
 #### 1. plane mode
 
@@ -54,3 +55,27 @@ The script adds the possibility to launch one other command before closing. I us
 The script uses **jmtpfs** to perform the mount in `/mnt/mtp_device` (you can change the name of the directory at the beginning of the script, variable `mount_dir`).
 
 If you want all users to be able to use it, and not only root, just use a sudo rule (see my android_fichiers_mtp_conf.md wiki in my wiki repo)
+
+#### 6. toggle touchpad device
+The scripts uses **xinput** to find current state of your touchpad (monitored by libinput) et toggle it.
+
+To make the program useful you may have to change the touchpad device name at the beginning of the code. You can find your libinput device names with the command `xinput` or `xinput list`.
+
+On my laptop, the touchpad is `"FocalTechPS/2 FocalTech Touchpad"` : 
+```
+$ xinput
+⎡ Virtual core pointer                    	id=2	[master pointer  (3)]
+⎜   ↳ Virtual core XTEST pointer              	id=4	[slave  pointer  (2)]
+⎜   ↳ FocalTechPS/2 FocalTech Touchpad        	id=13	[slave  pointer  (2)]
+⎣ Virtual core keyboard                   	id=3	[master keyboard (2)]
+    ↳ Virtual core XTEST keyboard             	id=5	[slave  keyboard (3)]
+    ↳ Power Button                            	id=6	[slave  keyboard (3)]
+    ↳ Asus Wireless Radio Control             	id=7	[slave  keyboard (3)]
+    ↳ Video Bus                               	id=8	[slave  keyboard (3)]
+    ↳ Video Bus                               	id=9	[slave  keyboard (3)]
+    ↳ Sleep Button                            	id=10	[slave  keyboard (3)]
+    ↳ Asus WMI hotkeys                        	id=11	[slave  keyboard (3)]
+    ↳ AT Translated Set 2 keyboard            	id=12	[slave  keyboard (3)]
+```
+    
+For more infos on how to bind the program to a key, just read the touchpad_configuration wiki in the `various_wiki` repo.
