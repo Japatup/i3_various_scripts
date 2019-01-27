@@ -17,6 +17,7 @@ Here you will find scripts to :
 4. control audio volume and sync it with i3blocks (i3status) bar *(depends on pulseaudio)*
 5. mount all mtp devices, even if not root *(depends on jmtpfs)*
 6. toggle touchpad device
+7. toggle autokey (a brilliant software to define personal keybindings and remap your keyboard. See [here](https://github.com/autokey/autokey) for more details ) 
 
 #### 1. plane mode
 
@@ -79,3 +80,9 @@ $ xinput
 ```
     
 For more infos on how to bind the program to a key, just read the touchpad_configuration wiki in the `various_wiki` repo.
+
+#### 7. Toggle autokey
+A mere bash script used to :
+
+- kill the running instance of Autokey, if one
+- else, start a new instance
