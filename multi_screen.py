@@ -12,7 +12,7 @@ M_pasink = ["alsa_output.pci-0000_00_1b.0.analog-stereo"]
 ### dynamic params ###
 parser = argparse.ArgumentParser(description="calls xrandr to easily manage two screens")
 group_display = parser.add_mutually_exclusive_group()
-group_display.add_argument("-m", "--main",help="display only the main screen" ,action="store_true")
+group_display.add_argument("-m", "--main",help="display only the main screen (defined at the beginning of the program)" ,action="store_true")
 group_display.add_argument("-g", "--guest",help="display only the guest screen" ,action="store_true")
 group_display.add_argument("-r", "--right",help="if only one screen is turned on, display the other one at its right. If both screens are turned on, the right one will be the guest screen" ,action="store_true")
 group_display.add_argument("-l", "--left",help="if only one screen is turned on, display the other one at its left. If both screens are turned on, the left one will be the guest screen" ,action="store_true")
@@ -71,7 +71,7 @@ def get_G_screen(M_screen, C_screens):
     returns 'the other available screen', the B screen. B screen is dynamically found among connected screens (C_screens), only if there is just one connected screen in addition the the principal screen (M_screen) whose name is static (defined in params)
     """
     G_screen = set(C_screens) - set(M_screen)
-    assert len(G_screen) <= 1, "Too much screens detected, can't define which one is your B screen. Stopping"
+    assert len(G_screen) <= 1, "Too much screens detected, can't define which one is your guest screen. Stopping"
     return(list(G_screen))
 
 def get_delta_screens(begin_list, end_list):
