@@ -93,6 +93,9 @@ if W_layout in ["main", "guest"]:
     ## détermination du W_screens
     W_screens = M_screen if W_layout == "main" else G_screen
     
+    if len(W_screens) < 1:
+        raise Exception("Wanted screens are not connected. Be sure to connect another screen")
+        
     ## les screens à éteindre (K_screens)
     K_screens = get_delta_screens(A_screens, W_screens)
     K_screens_command = " ".join(["--output {} --off".format(ii) for ii in K_screens]) if len(K_screens) > 0 else ""
@@ -117,6 +120,9 @@ elif W_layout in ["right", "left", "up", "down", "iso"]:
         T_screens = G_screen
     else:
         raise Exception("Too much active screens, can't define which one is your B screen. Stopping")
+    
+    if len(T_screens) < 1:
+        raise Exception("Wanted screens are not connected. Be sure to connect another screen")
     
     ## les screens connectés, à remettre en auto
     ## (Permet de pouvoir passer d'une situation en 2 écrans off à la situation extended voulue d'un coup (autrement, seul le G_screen s'allume))
