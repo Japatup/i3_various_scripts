@@ -130,8 +130,8 @@ elif W_layout in ["right", "left", "up", "down", "iso"]:
     C_screens_command = " ".join(C_screens_command)
     
     ## le screen vers lequel on étend le layout
-    T_screens_command = ["--output {screen} {rp} {a}".format(screen = ii, rp = rel_pos_ref_command[W_layout], a = A_screens[0]) for ii in T_screens]
-    T_screens_command = " ".join(T_screens_command) + " --auto" ## to prepare 3+ screens gestion
+    T_screens_command = ["--output {screen} {rp} {a} --auto".format(screen = ii, rp = rel_pos_ref_command[W_layout], a = A_screens[0]) for ii in T_screens]
+    T_screens_command = " ".join(T_screens_command) ## to prepare 3+ screens gestion
     
     command = " ".join([C_screens_command, T_screens_command])
     command = "xrandr " + command
