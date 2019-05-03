@@ -6,6 +6,7 @@ import argparse
 
 ### fixed params ###
 M_screen = ["eDP1"]
+M_pasink = ["alsa_output.pci-0000_00_1b.0.analog-stereo"]
 ####################
 
 ### dynamic params ###
@@ -18,7 +19,12 @@ group_display.add_argument("-l", "--left",help="if only one screen is turned on,
 group_display.add_argument("-u", "--up",help="if only one screen is turned on, display the other one above. If both screens are turned on, the above one will be the guest screen" ,action="store_true")
 group_display.add_argument("-d", "--down",help="if only one screen is turned on, display the other one under. If both screens are turned on, the under one will be the guest screen" ,action="store_true")
 group_display.add_argument("-i", "--iso",help="clone both screens" ,action="store_true")
-parser.add_argument("-c","--confirm", help="print the shell command about to be called and ask confirmation before launching it",action="store_true")
+
+group_audio = parser.add_mutually_exclusive_group()
+group_audio.add_argument("-M", "--audio_main",help="move audio signal to the main pulse audio sink (defined at the beginning of the program)" ,action="store_true")
+group_audio.add_argument("-G", "--audio_guest",help="move audio signal to the guest pulse audio sink" ,action="store_true")
+
+parser.add_argument("-c","--confirm", help="print the shell command about to be called and ask confirmation before launching it. Can be used as a verbose mode for checking, debugging and understanding things",action="store_true")
 
 args = parser.parse_args()
 ## parmi les arguments de display : 
@@ -27,9 +33,18 @@ args_display = {k:v for (k,v) in args.__dict__.items() if k in ["main", "guest",
 W_layout = [k for (k,v) in args_display.items() if v == True]
 W_layout = W_layout[0] if len(W_layout) == 1 else None
 
+## parmi les arguments de audio
+args_audio = {k:v for (k,v) in args.__dict__.items() if k in ["audio_main", "audio_guest"]}
+## lequel est à True ?
+W_audio = [k for (k,v) in args_audio.items() if v == True]
+W_audio = W_audio[0] if len(W_audio) == 1 else None
+# W_audio = "audio_main" ## pour test
 ######################
 
 ### functions ###
+
+## screen functions
+
 def get_C_screens():
     """
     returns connected screens, active or that could be activated
@@ -79,14 +94,102 @@ def call_command(command, command_name = "command", ask_confirm_flag = False):
     else:
         sp.Popen(command, shell = True)
 
+## audio functions
 
-## 0) détermination de G, A, C et W ____
-A_screens = get_A_screens()
-C_screens = get_C_screens()
-G_screen = get_G_screen(M_screen, C_screens)
-# W_screens = # à monter selon les paramètres en entrée
-# W_screens = G_screen
-# W_screens = M_screen
+def get_E_pasinks(wanted_keys = None, verbose = False):
+    """
+    returns a list of existing pulse audio sinks.
+    To know which ones are currently available, ask (at least) for the "Ports" key
+    Then, use the get_C_pasinks function on the E_pasinks list
+    """
+    # wanted_keys = ["Name", "Ports"]
+    # wanted_keys = None
+    
+    ## récup sortie pactl
+    pactl_output = sp.Popen("pactl list sinks", shell = True, stdout = sp.PIPE).communicate()[0].decode('utf-8').splitlines()
+    
+    ## init
+    sinks = []
+    n_sink = -1
+    actual_key = None
+    for (ii,x_ii) in enumerate(pactl_output):
+        # ii = 31
+        # x_ii = pactl_output[ii]
+        if verbose : 
+            print(str(ii) + ":" + x_ii)
+        tmp_search = re.search(r'^Sink\s+#(?P<num_sink>[0-9]+)',x_ii)
+        if tmp_search is not None:
+            if verbose:
+                print("### nouveau sink : " + tmp_search.group("num_sink"))
+            n_sink +=1
+            sinks.append({"n_sink":tmp_search.group("num_sink")})
+            continue
+            
+        ## cas des 1 tab
+        tmp_search = re.search(r'^\t(?!\t)(?P<pactl_key>.*?)\s*:\s*(?P<pactl_value>.*)$',x_ii)
+        if tmp_search is not None:
+            if verbose:
+                print("### new key : " + tmp_search.group("pactl_key"))
+            actual_key = tmp_search.group("pactl_key")
+            if wanted_keys is not None and actual_key is not None and actual_key not in wanted_keys : 
+                actual_key = None
+                continue
+            if tmp_search.group("pactl_value") is not None and tmp_search.group("pactl_value") != '':
+                if verbose:
+                    print("### new value direct : " + tmp_search.group("pactl_value"))
+                sinks[n_sink].update({actual_key:tmp_search.group("pactl_value")})
+            else:
+                if verbose:
+                    print("### no_value : creation of empty dict")
+                sinks[n_sink].update({actual_key:{}})
+            continue
+            
+        ## cas des 2 tabs
+        tmp_search = re.search(r'^\t\t(?P<pactl_key>.*?)\s*[=:]\s*(?P<pactl_value>.*)$',x_ii)
+        if tmp_search is not None and actual_key is not None:
+            if verbose:
+                print("### new sub key : " + tmp_search.group("pactl_key"))
+            if tmp_search.group("pactl_value") is not None and tmp_search.group("pactl_value") != '':
+                if verbose:
+                    print("### new sub value : " + tmp_search.group("pactl_value"))
+                sinks[n_sink][actual_key].update({tmp_search.group("pactl_key"):tmp_search.group("pactl_value")})
+            continue
+    return(sinks)
+
+def get_C_pasinks(existing_pasinks, ports_key="Ports", name_key = "Name"):
+    """
+    Takes a list of existing pulse audio sinks as returned by the get_E_pasinks function, and determines which ones are currently available (ie connected) thanks to the Ports value of the pactl output
+    """
+    tmp = [[re.search(r'^.*\(priority\s*:\s*[0-9]*(,\s*(?P<status>.*)\))?',jj).group("status") for jj in ii[ports_key].values()] for ii in existing_pasinks]
+    tmp = [1 if "available" in ii or None in ii else 0 for ii in tmp]
+    tmp = [existing_pasinks[ii][name_key] for ii in range(len(existing_pasinks)) if tmp[ii] == 1]
+    return(tmp)
+
+def get_G_pasink(M_sink, C_sink):
+    """
+    returns 'the other available pulse audio sinks', the guest sink. G sink is dynamically found among connected sinks (C_pasinks), only if there is just one connected sink in addition to the principal sink (M_pasink) whose name is static (defined in params)
+    """
+    G_sink = set(C_sink) - set(M_sink)
+    assert len(G_sink) <= 1, "Too much screens sinks, can't define which one is your guest sink. Stopping"
+    return(list(G_sink))
+
+def get_E_pasink_inputs():
+    """
+    returns a list of currently active sinks_inputs (only their pulse audio id)
+    """
+    tmp = sp.Popen("pactl list sink-inputs short", shell = True, stdout = sp.PIPE).communicate()[0].decode('utf-8').splitlines()
+    E_sink_inputs = [ii.split("\t")[0] for ii in tmp]
+    return(E_sink_inputs)
+
+### cases ###
+
+## actions on layout
+
+if W_layout is not None:
+    ## 0) détermination de G, A, C et W ____
+    A_screens = get_A_screens()
+    C_screens = get_C_screens()
+    G_screen = get_G_screen(M_screen, C_screens)
 
 if W_layout in ["main", "guest"]:
     ## 1) cas 1 : go to one screen ____
@@ -136,3 +239,29 @@ elif W_layout in ["right", "left", "up", "down", "iso"]:
     command = " ".join([C_screens_command, T_screens_command])
     command = "xrandr " + command
     call_command(command, command_name = "xrandr command", ask_confirm_flag = args.confirm)
+    
+## actions on audio
+
+if W_audio is not None:
+    ## 0bis) détermination de E, C, G et W ____
+    E_pasinks = get_E_pasinks(wanted_keys = ["Name","Ports"])
+    C_pasinks = get_C_pasinks(E_pasinks)
+    G_pasink = get_G_pasink(M_pasink, C_pasinks)
+    
+    ## 1bis) déplacement des sink inputs vers le sink choisi
+    ## détermination du W_pasink
+    W_pasink = M_pasink if W_audio == "audio_main" else G_pasink
+    
+    if len(W_pasink) == 1:
+        ## détermination des sink inputs à migrer
+        E_pasink_inputs = get_E_pasink_inputs()
+        if len(E_pasink_inputs) == 0 and args.confirm:
+            print("no sink_inputs to move. Make sure some audio signal is currently played")
+        ## écriture de la commande
+        command = ["pactl move-sink-input {sink_input} {sink}".format(sink_input = ii, sink = W_pasink[0]) for ii in E_pasink_inputs]
+        command = " ; ".join(command)
+        if re.match(r"^\s?$", command) is None: ## ie si command est rens
+            call_command(command, command_name = "pactl command", ask_confirm_flag = args.confirm)
+            
+    elif len(W_pasink) == 0:
+        raise Exception("Be sure the guest pulse audio sink is available (have you connected your HDMI/DP/whatever output ?")
