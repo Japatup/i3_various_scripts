@@ -86,3 +86,101 @@ A mere bash script used to :
 
 - kill the running instance of Autokey, if one
 - else, start a new instance
+
+#### 8. Multi_screen
+A python cli script used to easily manipulate both video and audio signals between two screens. It was thought to replace interfaces as [arandr](https://gitlab.com/arandr/arandr) and [pavucontrol](https://gitlab.freedesktop.org/pulseaudio/pavucontrol), but with keyboard keybindings only (faster :) )
+
+##### Here are the commands to use (and to keybind eventually) :
+
+- To use only one screen :
+    - `multi_screen --main` : use only your "main" screen (see below)
+    - `multi_screen --guest` : use only the "guest" screen (vga, hdmi, dp ...)
+
+- To use both screens :
+    - `multi_screen --left`
+    - `multi_screen --right`
+    - `multi_screen --up`
+    - `multi_screen --down`
+    - `multi_screen --iso`
+
+        These commands will turn on the currently off screen and position it left, right, above or under the active one. The last command mirrors the two displays.
+
+        If both are already on, then it's the "guest" screen that will be moved left, right, above or under the "main" screen.
+
+- To move audio signal to one _or_ another screen :
+    - `multi_screen --audio_main`
+    - `multi_screen --audio_guest`
+
+##### Keybindings
+
+As you can see, to move both video and audio signals, you currently use two commands, one for each type. I did this to keep manipulations flexible. That way you may choose to send video to hdmi but to keep audio on your laptop, for headphones output maybe.
+
+Nevertheless, if you want to move both signals, it's still two commands. For this reason, it's preferable to add keybindings to do the job. With mine (see below), I hit `End` to project to my guest screen only, then `Shift+End` to push the audio part as well. Quick and easy :)
+
+Here are the keybindings I personnaly use on i3 (you may visit [my i3config repo](https://github.com/Japatup/i3_config) )
+```
+## ~/.config/i3/config
+mode "multi_screen" {
+    bindsym Home exec --no-startup-id multi_screen --main
+    bindsym End exec --no-startup-id multi_screen --guest
+    bindsym Left exec --no-startup-id multi_screen --left
+    bindsym Right exec --no-startup-id multi_screen --right
+    bindsym Up exec --no-startup-id multi_screen --up
+    bindsym Down exec --no-startup-id multi_screen --down
+    bindsym m exec --no-startup-id multi_screen --iso
+    bindsym Shift+Left exec --no-startup-id multi_screen --audio_main
+    bindsym Shift+Right exec --no-startup-id multi_screen --audio_guest
+
+    # back to normal: Enter or Escape
+    bindsym Return mode "default"
+    bindsym Escape mode "default"
+}
+
+bindsym $mod+F8 mode "multi_screen"
+```
+
+##### Configuration
+The program is too simple to need config files. Then, all you must customise are two variables at the beginning of the script : `M_screen` and `M_pasink`.
+
+These define the "main" screen and "main" PulseAudio sink names. Typically your laptop screen and audio sink names.
+
+Indeed, the program will automatically find labels of the guest screen, without you to have to tell him if it's a hdmi, vga, display port ... input . However, it finds the guest labels (video and audio) by difference between all connected sources and the main screen properties, that you have to set then.
+
+__How to find your screen and PulseAudio sink names ?__
+
+- for the screen name :
+    ```
+    ## enter this command while you have no guest screen pluged
+    xrandr --listactivemonitors
+    ```
+    In my case, it does return the name `eDP1`:
+    ```
+    0: +*eDP1 1366/290x768/160+0+0  eDP1
+    ```
+- for the audio sink :
+    ```
+    pactl list sinks short
+    ```
+    In my case, it will be `alsa_output.pci-0000_00_1b.0.analog-stereo` (the other one being hdmi) :
+    ```
+    0	alsa_output.pci-0000_00_03.0.hdmi-stereo	module-alsa-card.c	s16le 2ch 48000Hz	SUSPENDED
+    1	alsa_output.pci-0000_00_1b.0.analog-stereo	module-alsa-card.c	s16le 2ch 48000Hz	SUSPENDED
+    ```
+Then for me, the script begins with :
+```
+### fixed params ###
+M_screen = ["eDP1"]
+M_pasink = ["alsa_output.pci-0000_00_1b.0.analog-stereo"]
+####################
+```
+
+##### Dependencies
+- Python3 (`aptitude install python3`)
+- xrandr (`aptitude install xrandr`)
+- pulseaudio (`aptitude install pulseaudio`)
+
+##### Limitations
+
+Currently, the program uses the stdout of the `xrandr` and `pactl` commands to evaluate the presence and the attributes of the guest screen. The formats of these outputs may change with versions of xrandr and pactl, and it would be necessary to adapt the script to handle the changes.
+
+On my machine, I use `xrandr 1.5.0` and `pactl 10.0`. If your versions differ and the script does not work as expected, let me know :)
